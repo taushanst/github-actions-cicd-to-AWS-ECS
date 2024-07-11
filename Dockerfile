@@ -10,4 +10,4 @@ WORKDIR /app
 COPY . /app
 
 # Запуск приложения
-CMD ["gunicorn", "-b", "0.0.0.0:80", "app:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:80", "application:app"]
