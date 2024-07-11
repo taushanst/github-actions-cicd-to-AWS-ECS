@@ -16,14 +16,11 @@ jobs:
       - name: Git clone our repo
         uses: actions/checkout@v2
 
-      - name: Check Dockerfile existence
-        run: ls Dockerfile
-        continue-on-error: true
-
       - name: Build Docker image Github-Actions
         run: |
           docker build -t my-app:${{ github.sha }} .
-          docker tag my-app:${{ github.sha }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION_NAME }}.amazonaws.com/my-app:${{ github.sha }}
+          docker tag my-app:${{ github.sha }} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION_NAME}.amazonaws.com/my-app:${{ github.sha }}
+
       - name: Configure AWS Credentials for ECR
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -32,10 +29,10 @@ jobs:
           aws-region: ${{ env.AWS_REGION_NAME }}
 
       - name: Login to Amazon ECR
-        run: aws ecr get-login-password --region ${{ env.AWS_REGION_NAME }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION_NAME }}.amazonaws.com
+        run: aws ecr get-login-password --region ${{ env.AWS_REGION_NAME }} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION_NAME}.amazonaws.com
 
       - name: Push Docker image to ECR
-        run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION_NAME }}.amazonaws.com/my-app:${{ github.sha }}
+        run: docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION_NAME}.amazonaws.com/my-app:${{ github.sha }}
 
   my_cd_part:
     runs-on: ubuntu-latest
@@ -52,5 +49,6 @@ jobs:
       - name: Create or update ECS service
         run: |
           aws ecs update-service --cluster my-cluster --service my-service --force-new-deployment --task-definition my-task-definition:${{ github.sha }}
+
       - name: Print Happy Message for CD finish
         run: echo "CD Pipeline part Finished successfully!"
