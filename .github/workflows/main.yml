@@ -1,0 +1,54 @@
+name: CI-CD-Pipeline-GithubActions-to-AWS-ECS
+
+env:
+  AWS_REGION_NAME: "eu-central-1" 
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  my_ci_part:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Git clone our repo
+        uses: actions/checkout@v1
+
+      - name: Build Docker image Github-Actions
+        run: |
+          docker build -t my-app:${{ github.sha }} .
+          docker tag my-app:${{ github.sha }} ${{ secrets.919766105498 }}.dkr.ecr.${{ env.AWS_REGION_NAME }}.amazonaws.com/my-app:${{ github.sha }}
+
+      - name: Configure AWS Credentials for ECR
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.MY_AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.MY_AWS_SECRET_KEY }}
+          aws-region: ${{ env.AWS_REGION_NAME }}
+
+      - name: Login to Amazon ECR
+        run: aws ecr get-login-password --region ${{ env.AWS_REGION_NAME }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION_NAME }}.amazonaws.com
+
+      - name: Push Docker image to ECR
+        run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION_NAME }}.amazonaws.com/my-app:${{ github.sha }}
+
+  my_cd_part:
+    runs-on: ubuntu-latest
+    needs: [my_ci_part]
+
+    steps:
+      - name: Configure AWS Credentials for ECS
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.MY_AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.MY_AWS_SECRET_KEY }}
+          aws-region: ${{ env.AWS_REGION_NAME }}
+
+      - name: Create or update ECS service
+        run: |
+          aws ecs update-service --cluster my-cluster --service my-service --force-new-deployment --task-definition my-task-definition:${{ github.sha }}
+
+      - name: Print Happy Message for CD finish
+        run: echo "CD Pipeline part Finished successfully!"
