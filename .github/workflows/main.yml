@@ -46,9 +46,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.MY_AWS_SECRET_KEY }}
           aws-region: ${{ env.AWS_REGION_NAME }}
 
-      - name: Create or update ECS service
+      - name: Update ECS service
         run: |
           aws ecs update-service --cluster my-cluster --service my-service --force-new-deployment --task-definition my-task-definition:${{ github.sha }}
 
-      - name: Print Happy Message for CD finish
+      - name: Print CD Pipeline Finish Message
         run: echo "CD Pipeline part Finished successfully!"
