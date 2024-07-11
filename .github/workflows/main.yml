@@ -9,38 +9,31 @@ on:
       - main
 
 jobs:
-  my_ci_part:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Git clone our repo
+      - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Check Dockerfile existence
-        run: ls Dockerfile
-        continue-on-error: true
-
-      - name: Build Docker image Github-Actions
-        run: |
-          docker build -t my-app:${{ github.sha }} .
-          docker tag my-app:${{ github.sha }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION_NAME }}.amazonaws.com/my-app:${{ github.sha }}
-
-      - name: Configure AWS Credentials for ECR
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.MY_AWS_ACCESS_KEY }}
-          aws-secret-access-key: ${{ secrets.MY_AWS_SECRET_KEY }}
-          aws-region: ${{ env.AWS_REGION_NAME }}
-
       - name: Login to Amazon ECR
-        run: aws ecr get-login-password --region ${{ env.AWS_REGION_NAME }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION_NAME }}.amazonaws.com
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION_NAME }}.amazonaws.com
 
-      - name: Push Docker image to ECR
-        run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION_NAME }}.amazonaws.com/my-app:${{ github.sha }}
+      - name: Build and push Docker image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION_NAME }}.amazonaws.com
+          IMAGE_NAME: "my-app"
+          TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$IMAGE_NAME:$TAG .
+          docker push $ECR_REGISTRY/$IMAGE_NAME:$TAG
 
-  my_cd_part:
+  update-service:
     runs-on: ubuntu-latest
-    needs: [my_ci_part]
+    needs: build-and-deploy
 
     steps:
       - name: Configure AWS Credentials for ECS
@@ -50,9 +43,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.MY_AWS_SECRET_KEY }}
           aws-region: ${{ env.AWS_REGION_NAME }}
 
-      - name: Create or update ECS service
+      - name: Update ECS service
         run: |
           aws ecs update-service --cluster my-cluster --service my-service --force-new-deployment --task-definition my-task-definition:${{ github.sha }}
 
-      - name: Print Happy Message for CD finish
-        run: echo "CD Pipeline part Finished successfully!"
+      - name: Print completion message
+        run: echo "CD Pipeline has finished successfully!"
