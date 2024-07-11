@@ -1,8 +1,7 @@
 name: CI-CD-Pipeline-GithubActions-to-AWS-ECS
 
 env:
-  AWS_REGION_NAME: "eu-central-1" 
-
+  AWS_REGION_NAME: "eu-central-1"
 
 on:
   push:
@@ -15,11 +14,15 @@ jobs:
 
     steps:
       - name: Git clone our repo
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
+
+      - name: Check Dockerfile existence
+        run: ls Dockerfile
+        continue-on-error: true
 
       - name: Build Docker image Github-Actions
         run: |
-          docker build -t my-app:${{ github.sha }} ./Dockerfile
+          docker build -t my-app:${{ github.sha }} .
           docker tag my-app:${{ github.sha }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION_NAME }}.amazonaws.com/my-app:${{ github.sha }}
 
       - name: Configure AWS Credentials for ECR
